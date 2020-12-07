@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -71,7 +72,7 @@ bool addSymbolEntry(SymbolEntry newSymbol)
 	}
 }
 
-//this function is called in the second pass to make sure all symbols have been assigned an address
+//called in the second pass to make sure all symbols have been assigned an address
 int getAddress(char *symbol)
 {
 	int counter = 0;//counter variable to use in the while loop
@@ -84,7 +85,7 @@ int getAddress(char *symbol)
 		counter++;
 	}
 
-	//if the symbol is nont found, return -1
+	//if the symbol is not found, return -1
 	return -1;
 }
 

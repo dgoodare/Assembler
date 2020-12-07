@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -5,6 +6,7 @@
 /*----Constants----*/
 #define MAXLENGTH 24//max number of characters in a symbol or variable name
 #define MAXENTRIES 256//max number of entries in the symbol table
+#define MAXCHAR 128//max number of character that will be read per line
 
 /*----Data Structures----*/
 typedef struct symbolEntry
