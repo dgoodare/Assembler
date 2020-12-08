@@ -23,3 +23,6 @@ void initialiseInstructions();
 bool addSymbolEntry(SymbolEntry newSymbol);
 int getAddress(char *symbol);
 void printSymbol(SymbolEntry symbol);
+void removeCommentsAndSpaces();
+int findString(const char* substring);
+void resolveSymbols(int startPos, int endPos);

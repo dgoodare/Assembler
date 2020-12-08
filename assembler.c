@@ -95,3 +95,168 @@ void printSymbol(SymbolEntry symbol)
 	if (strcmp(symbol.symbol, "\0") != 0)
 		printf("SYMBOL: %s ADDRESS: %d\n", symbol.symbol, symbol.address);	
 }
+
+/**
+* This function is the first to be called in PASS 1 
+* and will remove unnecessary characters and spacing from the assembly language file
+*/
+void removeCommentsAndSpaces()
+{
+	//declaring pointers to files
+	//the starting file being read from in pass 1
+	FILE *inputf;
+	//intermediate file, that has the same content as inputf, but with comments and whitespace removed
+	//this file is written to in pass 1 and read from in pass 2
+	FILE *interf;
+
+	char currentCommand[MAXCHAR];//string to store the command being processed, with buffer of MAXCHAR (80) characters
+	char processedCommand[MAXCHAR];//processed version of currentCommand, with comments and whitespace removed
+
+	//open files 
+	//WILL EVENTUALLY IMPLEMENT A MORE ROBUST METHOD FOR OPENING FILES
+	inputf = fopen("assembly.txt", "r");//open the assembly language file for reading
+	interf = fopen("intermediate.txt", "w");//open or create the intermediate file
+
+	if((!inputf) || (!interf))
+	{
+		printf("Error opening file\n");
+		return;
+	}
+
+	//Reads in one line at a time and removes tabs, spaces and comments
+	while (fgets(currentCommand, MAXCHAR, inputf) != NULL)
+	{
+		//process the command stored in currentCommand
+		//counter variables to refer to each character in the two command variables
+		int c = 0;//counter for currentCommand
+		int p = 0;//counter for processedCommand
+
+		//initialise processedCommand to NULL
+		processedCommand[0] = '\0';
+
+		//remove tabs and spaces
+		while (currentCommand[c] != '\n')
+		{
+			if ((currentCommand[c] != '\t') && (currentCommand[c] != ' '))
+			{
+				processedCommand[p++] = currentCommand[c];
+			}
+			c++;
+		}
+
+		//add newline character and end-of-string character (null character) onto the end
+		processedCommand[p] = '\n';
+		processedCommand[p+1] = '\0';
+
+		//remove comments
+		p = 0;//reset counter
+		while (processedCommand[p] != '\n')
+		{
+			if (processedCommand[p] == ';')
+			{
+				//replace comment with newline and null characters
+				processedCommand[p] = '\n';
+				processedCommand[p+1] = '\0';
+				break;
+			}
+			p++;
+		}
+		//write the processed command into the intermediate file
+		fputs(processedCommand, interf);
+	}
+
+	fclose(inputf);
+	fclose(interf);
+}
+
+/**
+* function to find the line containing the substring
+* used to find START and END labels in PASS 1
+*/
+int findString(const char* substring)
+{
+	FILE *fp = fopen("intermediate.txt", "r");
+	if (!fp)
+	{
+		printf("Error opening file\n");
+		return -1;
+	}
+
+	int lineNumber = 0;
+	char currentLine[MAXCHAR];
+
+	while (fgets(currentLine, MAXCHAR, fp) != NULL)
+	{
+		//printf("Searching at line %d\n", lineNumber);
+		char *p;//pointer to the first char of substring if it is found
+		p = strstr(currentLine, substring);//returns a null pointer if the substring isn't found
+
+		if (p)
+		{
+			//printf("String found at line %d\n", lineNumber);
+			fclose(fp);
+			return lineNumber;
+		}
+		else
+		{
+			lineNumber++;
+		}
+	}
+
+	fclose(fp);
+	return -1;
+}
+
+/**
+* resovles user-defined symbols in the assembly code
+* since variable declarations happen outside of the START-END section there is no need to look there
+* hence, the positions of START and END are passed into the function.
+*
+* 
+*/
+void resolveSymbols(int startPos, int endPos)
+{
+	FILE *fp = fopen("intermediate.txt", "r");
+	if (!fp)
+	{
+		printf("Error opening file\n");
+		return;
+	}
+
+	int lineNumber = 0;
+	char currentLine [MAXCHAR];
+
+	while (fgets(currentLine, MAXCHAR, fp) != NULL)
+	{
+		if ((lineNumber >= startPos) && (lineNumber <= endPos))
+		{
+			lineNumber++;
+			continue;
+		}
+
+		char *p;//pointer to the first char of substring if it is found
+		p = strchr(currentLine, ':');//looks for : in the current line
+
+		if (p)
+		{
+			//splits the line by ':' text before it will be the variable's name
+			char *symbolName = strtok(currentLine, ":");
+			//create a new symbol and assign its name
+			SymbolEntry newSymbol;
+			strcpy(newSymbol.symbol, symbolName);
+			newSymbol.address = -1;
+			//add it to the symbol table
+			bool added = addSymbolEntry(newSymbol);
+			if (added)
+			{
+				printf("Symbol added\n");
+			}
+			else
+			{
+				printf("Symbol not added\n");
+			}
+		}
+		
+		lineNumber++;
+	}
+}
