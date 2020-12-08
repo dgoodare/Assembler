@@ -5,15 +5,6 @@
 
 int main()
 {
-	SymbolEntry symbol;
-
-	int instructionCount = 0;//the number of instructions
-	int lineNumber = 0;//the number of lines that have been read
-
-	//temporary variables to store symbols
-	char tempSymbol1[MAXCHAR];
-	char tempSymbol2[MAXCHAR];
-
 	//initialise the symbol table with instructions
 	initialiseInstructions();
 
