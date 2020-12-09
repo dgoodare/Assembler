@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include "assembler.h"
 
 //initialise the symbol table to include the Baby's pre-set instruction set. 
@@ -9,27 +10,51 @@
 void initialiseInstructions()
 {
 	//initialise keywords for the instruction set
-	strcpy(SymbolTable[0].symbol, "JMP");
-	strcpy(SymbolTable[1].symbol, "LDN");
-	strcpy(SymbolTable[2].symbol, "STO");
-	strcpy(SymbolTable[3].symbol, "SUB");
-	strcpy(SymbolTable[4].symbol, "SUB");
-	strcpy(SymbolTable[5].symbol, "CMP");
-	strcpy(SymbolTable[6].symbol, "STP");
+	strcpy(InstructionSet[0].mnem, "JMP");
+	strcpy(InstructionSet[1].mnem, "JRP");
+	strcpy(InstructionSet[2].mnem, "LDN");
+	strcpy(InstructionSet[3].mnem, "STO");
+	strcpy(InstructionSet[4].mnem, "SUB");
+	strcpy(InstructionSet[5].mnem, "SUB");
+	strcpy(InstructionSet[6].mnem, "CMP");
+	strcpy(InstructionSet[7].mnem, "STP");
 
-	//initialise addresses for the instruction set
+	//initialise binary for the instruction set
+	/*
+	strcpy(InstructionSet[0].binary, "000");
+	strcpy(InstructionSet[1].binary, "100");
+	strcpy(InstructionSet[2].binary, "010");
+	strcpy(InstructionSet[3].binary, "110");
+	strcpy(InstructionSet[4].binary, "001");
+	strcpy(InstructionSet[5].binary, "101");
+	strcpy(InstructionSet[6].binary, "011");
+	strcpy(InstructionSet[7].binary, "111");
+*/
+}
+
+char* getMnem(Instruction ins)
+{
+	char * str;
+	str	= malloc(sizeof(char)*3);
+
+	strcpy(str, ins.mnem);
+	return str;
+}
+
+//initialise entries in the table
+//NULL character for symbol
+//-1 for address
+void initialiseSymbolTable()
+{
+	/**
+	* the Manchester Baby program starts at 1, the 0th address needs to be filled
+	* this is what the 1st line (VAR 0) is doing in the assembly code
+	* I've opted to do this automatically to avoid potential errors
+	*/
+	strcpy(SymbolTable[0].symbol, "0");
 	SymbolTable[0].address = 0;
-	SymbolTable[1].address = 1;
-	SymbolTable[2].address = 2;
-	SymbolTable[3].address = 3;
-	SymbolTable[4].address = 3;//duplicate values for SUB
-	SymbolTable[5].address = 5;
-	SymbolTable[6].address = 6;
 
-	//initialise remaining entries in the table
-	//NULL character for symbol
-	//-1 for address
-	for (int i = 7; i < MAXENTRIES; i++)
+	for (int i = 1; i < MAXENTRIES; i++)
 	{
 		strcpy(SymbolTable[i].symbol, "\0");
 		SymbolTable[i].address = -1;
@@ -187,13 +212,11 @@ int findString(const char* substring)
 
 	while (fgets(currentLine, MAXCHAR, fp) != NULL)
 	{
-		//printf("Searching at line %d\n", lineNumber);
 		char *p;//pointer to the first char of substring if it is found
 		p = strstr(currentLine, substring);//returns a null pointer if the substring isn't found
 
 		if (p)
 		{
-			//printf("String found at line %d\n", lineNumber);
 			fclose(fp);
 			return lineNumber;
 		}
@@ -209,12 +232,10 @@ int findString(const char* substring)
 
 /**
 * resovles user-defined symbols in the assembly code
-* since variable declarations happen outside of the START-END section there is no need to look there
-* hence, the positions of START and END are passed into the function.
-*
-* 
+* since a label is always the first thing in a line and will always be followed by a ':'
+* they can be easily identified and extracted from the assembly code
 */
-void resolveSymbols(int startPos, int endPos)
+void resolveSymbols()
 {
 	FILE *fp = fopen("intermediate.txt", "r");
 	if (!fp)
@@ -228,35 +249,98 @@ void resolveSymbols(int startPos, int endPos)
 
 	while (fgets(currentLine, MAXCHAR, fp) != NULL)
 	{
-		if ((lineNumber >= startPos) && (lineNumber <= endPos))
-		{
-			lineNumber++;
-			continue;
-		}
-
 		char *p;//pointer to the first char of substring if it is found
 		p = strchr(currentLine, ':');//looks for : in the current line
 
 		if (p)
 		{
-			//splits the line by ':' text before it will be the variable's name
-			char *symbolName = strtok(currentLine, ":");
-			//create a new symbol and assign its name
-			SymbolEntry newSymbol;
-			strcpy(newSymbol.symbol, symbolName);
-			newSymbol.address = -1;
-			//add it to the symbol table
-			bool added = addSymbolEntry(newSymbol);
-			if (added)
+			//splits the line by ':' text before it will be the symbol's name
+			char *str = strtok(currentLine, ":");
+
+			if (!isdigit(str[0]))
 			{
-				printf("Symbol added\n");
+				SymbolEntry newSymbol;
+				strcpy(newSymbol.symbol, str);
+				newSymbol.address = -1;
+				//add it to the symbol table
+				addSymbolEntry(newSymbol);
 			}
-			else
-			{
-				printf("Symbol not added\n");
-			}
+			
+			//send the rest of the current line to be processed and added to the output code buffer (if necessary)
+			str = strtok(NULL, ":");
+			processCommand(str);
+		}
+		else if ((currentLine[1] != '\0') && (currentLine[0] != '\n'))
+		{
+			processCommand(currentLine);
 		}
 		
 		lineNumber++;
 	}
+	fclose(fp);
+}
+
+void processCommand(char command[])
+{
+	//printf("Command being processed: %s", command);
+	char tempStr1[3];//temp variable to store the first 3 characters in the command
+	tempStr1[0] = command[0];
+	tempStr1[1] = command[1];
+	tempStr1[2] = command[2];
+
+	int length = strlen(command) - 3;
+
+	char tempStr2[length];//temp variabel to store the rest of the command
+
+	for (int i = 0; i < length; i++)
+	{
+		if ((command[i+3] != '\n') && (command[i+3] != '\0'))
+			tempStr2[i] = command[i+3];
+	}
+
+	//printf("start of command: %s\n", tempStr1);
+	//printf("rest of command: %s\n", tempStr2);
+	
+	//check if the command is a variable declaration, if it is, ignore it for now
+	if (strcmp(tempStr1, "VAR") == 0)
+	{
+		printf("variable declaration, moving to next line\n");
+		return;
+	}
+
+	//check if the start of the command is an instruction
+	if (!isInstruction(tempStr1))
+	{
+		printf("ERROR: command is not in the instruction set\n");
+		exit(0);
+	}
+	
+	//check if the rest of the command is a number
+	if (!isdigit(tempStr2[0]))
+	{
+		printf("%s\n", tempStr2);
+		printf("rest of command is a symbol, adding to table\n");
+		//create a new symbol and assign its name
+		SymbolEntry newSymbol;
+		strcpy(newSymbol.symbol, tempStr2);
+		newSymbol.address = -1;
+		//add it to the symbol table
+		addSymbolEntry(newSymbol);
+	}
+}
+
+//checks if a string is in the instruction set
+bool isInstruction(const char* str)
+{
+	bool isInstruction = false;
+
+	//printf("%s\n", str);
+
+	for (int i = 0; i < 8; i++)
+	{
+		if (strcmp(str, getMnem(InstructionSet[i])) == 0)
+			isInstruction = true;
+	}
+
+	return isInstruction;
 }
