@@ -6,10 +6,13 @@
 
 int main()
 {
-	//initialise the instruction set
 	initialiseInstructions();
-	//initialise the symbol table
+
+	initialiseBinary();
+
 	initialiseSymbolTable();
+	
+	initialiseOutputCodeBuffer();
 
 	/*----PASS 1----*/
 	//remove unnecessary characters from the assembly language file
@@ -21,4 +24,7 @@ int main()
 	{
 		printSymbol(SymbolTable[i]);
 	}
+
+	printBuffer();
+	return 1;
 }

@@ -18,18 +18,18 @@ void initialiseInstructions()
 	strcpy(InstructionSet[5].mnem, "SUB");
 	strcpy(InstructionSet[6].mnem, "CMP");
 	strcpy(InstructionSet[7].mnem, "STP");
+}
 
-	//initialise binary for the instruction set
-	/*
-	strcpy(InstructionSet[0].binary, "000");
-	strcpy(InstructionSet[1].binary, "100");
-	strcpy(InstructionSet[2].binary, "010");
-	strcpy(InstructionSet[3].binary, "110");
-	strcpy(InstructionSet[4].binary, "001");
-	strcpy(InstructionSet[5].binary, "101");
-	strcpy(InstructionSet[6].binary, "011");
-	strcpy(InstructionSet[7].binary, "111");
-*/
+void initialiseBinary()
+{
+	strcpy(InstructionBinary[0].binary, "00000");
+	strcpy(InstructionBinary[1].binary, "00100");
+	strcpy(InstructionBinary[2].binary, "00010");
+	strcpy(InstructionBinary[3].binary, "00110");
+	strcpy(InstructionBinary[4].binary, "00001");
+	strcpy(InstructionBinary[5].binary, "00101");
+	strcpy(InstructionBinary[6].binary, "00011");
+	strcpy(InstructionBinary[7].binary, "00111");
 }
 
 char* getMnem(Instruction ins)
@@ -51,8 +51,8 @@ void initialiseSymbolTable()
 	* this is what the 1st line (VAR 0) is doing in the assembly code
 	* I've opted to do this automatically to avoid potential errors
 	*/
-	strcpy(SymbolTable[0].symbol, "0");
-	SymbolTable[0].address = 0;
+	//strcpy(SymbolTable[0].symbol, "0");
+	//SymbolTable[0].address = 0;
 
 	for (int i = 1; i < MAXENTRIES; i++)
 	{
@@ -61,10 +61,31 @@ void initialiseSymbolTable()
 	}
 }
 
+void initialiseOutputCodeBuffer()
+{
+	//the first entry must be initialised differently since the Manchester Baby starts at address 1
+	OutputCodeBuffer[0].address = 0;
+	strcpy(OutputCodeBuffer[0].binary, "00000");
+
+	for (int i = 1; i < MAXBUFFER; i++)
+	{
+		OutputCodeBuffer[i].address = i;
+		strcpy(OutputCodeBuffer[i].binary, "");
+	}
+
+	//set address counter to 1
+	addressCounter = 1;
+}
+
 //adds a new symbol to the table, returns true is the symbol was successfully added, false if not
 bool addSymbolEntry(SymbolEntry newSymbol)
 {
 	//first, check if the symbol already exists in the table
+	if (isSymbol(newSymbol.symbol))
+	{
+		return false;
+	}
+
 	int counter = 0;//counter variable to use in the while loop
 
 	//while the two strings are not the same
@@ -261,9 +282,11 @@ void resolveSymbols()
 			{
 				SymbolEntry newSymbol;
 				strcpy(newSymbol.symbol, str);
-				newSymbol.address = -1;
+				newSymbol.address = addressCounter;
 				//add it to the symbol table
 				addSymbolEntry(newSymbol);
+				//increment address counter
+				addressCounter++;
 			}
 			
 			//send the rest of the current line to be processed and added to the output code buffer (if necessary)
@@ -282,7 +305,7 @@ void resolveSymbols()
 
 void processCommand(char command[])
 {
-	//printf("Command being processed: %s", command);
+	printf("Command being processed: %s", command);
 	char tempStr1[3];//temp variable to store the first 3 characters in the command
 	tempStr1[0] = command[0];
 	tempStr1[1] = command[1];
@@ -304,7 +327,6 @@ void processCommand(char command[])
 	//check if the command is a variable declaration, if it is, ignore it for now
 	if (strcmp(tempStr1, "VAR") == 0)
 	{
-		printf("variable declaration, moving to next line\n");
 		return;
 	}
 
@@ -314,18 +336,20 @@ void processCommand(char command[])
 		printf("ERROR: command is not in the instruction set\n");
 		exit(0);
 	}
+
+	//put command binary into the output code buffer
+	addToBuffer(tempStr1);
 	
 	//check if the rest of the command is a number
 	if (!isdigit(tempStr2[0]))
 	{
-		printf("%s\n", tempStr2);
-		printf("rest of command is a symbol, adding to table\n");
 		//create a new symbol and assign its name
 		SymbolEntry newSymbol;
 		strcpy(newSymbol.symbol, tempStr2);
 		newSymbol.address = -1;
 		//add it to the symbol table
 		addSymbolEntry(newSymbol);
+		addressCounter++;
 	}
 }
 
@@ -343,4 +367,52 @@ bool isInstruction(const char* str)
 	}
 
 	return isInstruction;
+}
+
+//checks if a symbol already exists in the table
+bool isSymbol(const char* str)
+{
+	bool isSymbol = false;
+
+	for (int i = 0; i < MAXENTRIES; i++)
+	{
+		if(strcmp(str, SymbolTable[i].symbol) == 0)
+		{
+			isSymbol = true;
+			break;
+		}
+	}
+
+	return isSymbol;
+}
+
+void addToBuffer(const char* str)
+{
+	char tempbinary[5];
+	printf("Instruction %s received\n", str);
+
+	for(int i = 0; i < 8; i++)
+	{
+		if (strcmp(str, getMnem(InstructionSet[i])) == 0)
+		{
+
+			printf("Match found\n");
+			strcpy(tempbinary, InstructionBinary[i].binary);
+			printf("binary code: %s\n", tempbinary);
+			break;
+		}
+	}
+
+	strcpy(OutputCodeBuffer[addressCounter].binary, tempbinary);
+	
+	
+}
+
+void printBuffer()
+{
+	printf("First 10 entries in Output buffer:\n");
+	for (int i = 0; i < 10; i++)
+	{
+		printf("Binary stored in address %d is %s\n", i, OutputCodeBuffer[i].binary);
+	}
 }
