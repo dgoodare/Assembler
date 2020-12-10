@@ -5,8 +5,13 @@
 #include <ctype.h>
 #include "assembler.h"
 
-//initialise the symbol table to include the Baby's pre-set instruction set. 
-//These symbols are not defined by the user and shouldn't accidently be duplicated in the symbol table
+/**
+* This function will initialise the mnemonics for the instruction set.
+* I originally had the mnemonics and their binary equivalents stored in the same data structure, but for some reason
+* when initialising the binary, it would change the mnemonic as well, so "JMP" would become "JMP000". 
+* So as a workaround, i split them up, which isn't ideal.
+* One possible solution is to store the binary as an integer instead and only convert it to binary later.
+*/
 void initialiseInstructions()
 {
 	//initialise keywords for the instruction set
@@ -20,6 +25,11 @@ void initialiseInstructions()
 	strcpy(InstructionSet[7].mnem, "STP");
 }
 
+/**
+* Initialise Binary Codes for Instructions
+* As mentioned above, this is how I've initialised the binary code equivalents for the instructions. It's 
+* obviously not ideal, but it works for now.
+*/
 void initialiseBinary()
 {
 	strcpy(InstructionBinary[0].binary, "00000");
@@ -32,6 +42,9 @@ void initialiseBinary()
 	strcpy(InstructionBinary[7].binary, "00111");
 }
 
+/**
+* This function will return the mnemonic for the intruction passed into it
+*/
 char* getMnem(Instruction ins)
 {
 	char * str;
@@ -41,29 +54,28 @@ char* getMnem(Instruction ins)
 	return str;
 }
 
-//initialise entries in the table
-//NULL character for symbol
-//-1 for address
+/**
+* Initialise the entries in the symbol table with "\0" as the symbol name
+* I have been using -1 for symbols that do not have an address
+*/
 void initialiseSymbolTable()
 {
-	/**
-	* the Manchester Baby program starts at 1, the 0th address needs to be filled
-	* this is what the 1st line (VAR 0) is doing in the assembly code
-	* I've opted to do this automatically to avoid potential errors
-	*/
-	//strcpy(SymbolTable[0].symbol, "0");
-	//SymbolTable[0].address = 0;
-
-	for (int i = 1; i < MAXENTRIES; i++)
+	for (int i = 0; i < MAXENTRIES; i++)
 	{
 		strcpy(SymbolTable[i].symbol, "\0");
 		SymbolTable[i].address = -1;
 	}
 }
 
+/**
+* This will set up the output code buffer with the addresses, which as far as I can tell, are just linear
+* and in ascending order from 0 - MAXBUFFER.
+* And If I understand it correctly, since the Manchester Baby increments its instruction counter before 
+* fetching the instruction, the code in the first address will be ignored.
+*/
 void initialiseOutputCodeBuffer()
 {
-	//the first entry must be initialised differently since the Manchester Baby starts at address 1
+	//the first entry must be initialised differently
 	OutputCodeBuffer[0].address = 0;
 	strcpy(OutputCodeBuffer[0].binary, "00000");
 
@@ -77,7 +89,9 @@ void initialiseOutputCodeBuffer()
 	addressCounter = 1;
 }
 
-//adds a new symbol to the table, returns true is the symbol was successfully added, false if not
+/**
+* This adds a new symbol to the Symbol Table
+*/
 bool addSymbolEntry(SymbolEntry newSymbol)
 {
 	//first, check if the symbol already exists in the table
@@ -118,7 +132,11 @@ bool addSymbolEntry(SymbolEntry newSymbol)
 	}
 }
 
-//called in the second pass to make sure all symbols have been assigned an address
+/**
+* Returns the address of a symbol
+* As it stands, this function doesn't get used anywhere in Pass 1, but might be useful in Pass 2
+* so I've left it in. This is quite a messy way of returning a value, so could probably be changed. 
+*/
 int getAddress(char *symbol)
 {
 	int counter = 0;//counter variable to use in the while loop
@@ -135,7 +153,9 @@ int getAddress(char *symbol)
 	return -1;
 }
 
-//prints a symbol in the symbol table
+/**
+* Prints a symbol's information
+*/
 void printSymbol(SymbolEntry symbol)
 {
 	if (strcmp(symbol.symbol, "\0") != 0)
@@ -216,8 +236,8 @@ void removeCommentsAndSpaces()
 }
 
 /**
-* function to find the line containing the substring
-* used to find START and END labels in PASS 1
+* Function to find the line containing the substring passed into it
+* This isn't being used at the moment, but might be useful in Pass 2 so I've left it in for now.
 */
 int findString(const char* substring)
 {
@@ -252,9 +272,15 @@ int findString(const char* substring)
 }
 
 /**
-* resovles user-defined symbols in the assembly code
-* since a label is always the first thing in a line and will always be followed by a ':'
-* they can be easily identified and extracted from the assembly code
+* Resovles user-defined symbols in the assembly code
+*
+* For labels like 'START' or 'END' it will always be the first thing in a line and will always be 
+* followed by a ':', so they can be easily identified and extracted from the assembly code.
+* These labels' addresses will be known and can be added to the symbol table in their completed form
+*
+* For other symbols (variables) like 'NUM01', their addresses are unknown until Pass 2, so they will
+* be added to the Symbol Table with an address of -1. This doesn't happen in this function though, 
+* they will be added when a command e.g "LDNNUM01" is processed when processCommand() is called.
 */
 void resolveSymbols()
 {
@@ -265,7 +291,6 @@ void resolveSymbols()
 		return;
 	}
 
-	int lineNumber = 0;
 	char currentLine [MAXCHAR];
 
 	while (fgets(currentLine, MAXCHAR, fp) != NULL)
@@ -280,6 +305,7 @@ void resolveSymbols()
 
 			if (!isdigit(str[0]))
 			{
+				//Symbols like 'START' and 'END' get added to the table here
 				SymbolEntry newSymbol;
 				strcpy(newSymbol.symbol, str);
 				newSymbol.address = addressCounter;
@@ -298,11 +324,15 @@ void resolveSymbols()
 			processCommand(currentLine);
 		}
 		
-		lineNumber++;
 	}
 	fclose(fp);
 }
 
+/**
+* This function processes commands like 'LDNNUM01' and 'SUBNUM02'
+* It will check if the instruction matches an instruction from the instruction set, if it doesn't exit(0) is called.
+* 
+*/
 void processCommand(char command[])
 {
 	printf("Command being processed: %s", command);
@@ -313,16 +343,13 @@ void processCommand(char command[])
 
 	int length = strlen(command) - 3;
 
-	char tempStr2[length];//temp variabel to store the rest of the command
+	char tempStr2[length];//temp variable to store the rest of the command
 
 	for (int i = 0; i < length; i++)
 	{
 		if ((command[i+3] != '\n') && (command[i+3] != '\0'))
 			tempStr2[i] = command[i+3];
 	}
-
-	//printf("start of command: %s\n", tempStr1);
-	//printf("rest of command: %s\n", tempStr2);
 	
 	//check if the command is a variable declaration, if it is, ignore it for now
 	if (strcmp(tempStr1, "VAR") == 0)
@@ -343,6 +370,7 @@ void processCommand(char command[])
 	//check if the rest of the command is a number
 	if (!isdigit(tempStr2[0]))
 	{
+		//Symbols like 'NUM01' get added here
 		//create a new symbol and assign its name
 		SymbolEntry newSymbol;
 		strcpy(newSymbol.symbol, tempStr2);
@@ -351,14 +379,18 @@ void processCommand(char command[])
 		addSymbolEntry(newSymbol);
 		addressCounter++;
 	}
+	/*
+	* There is a case where a command is called directly onto a number e.g. 'LDN5', but I haven't implemented this
+	* yet since it does not appear in the assembly code file we've been given.
+	*/
 }
 
-//checks if a string is in the instruction set
+/**
+* This function will check if a command matches a one of the pre-deifined instructions
+*/
 bool isInstruction(const char* str)
 {
 	bool isInstruction = false;
-
-	//printf("%s\n", str);
 
 	for (int i = 0; i < 8; i++)
 	{
@@ -369,7 +401,9 @@ bool isInstruction(const char* str)
 	return isInstruction;
 }
 
-//checks if a symbol already exists in the table
+/**
+* Checks if a symbol already exists in the Symbol Table
+*/
 bool isSymbol(const char* str)
 {
 	bool isSymbol = false;
@@ -386,6 +420,12 @@ bool isSymbol(const char* str)
 	return isSymbol;
 }
 
+/**
+* This function is called binary is being added to the Output Buffer
+* This is definitely going to need some work. I initially thought it would be better to store 
+* the binary codes as strings, but this has caused some issues, so it might be better storing
+* them as integers to be converted into binary later.
+*/
 void addToBuffer(const char* str)
 {
 	char tempbinary[5];
@@ -404,10 +444,12 @@ void addToBuffer(const char* str)
 	}
 
 	strcpy(OutputCodeBuffer[addressCounter].binary, tempbinary);
-	
-	
 }
 
+/**
+* Prints the first 10 entries in the buffer
+* It only prints the first 10 for now since it has 256 spaces and only a handful will be used
+*/
 void printBuffer()
 {
 	printf("First 10 entries in Output buffer:\n");

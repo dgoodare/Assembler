@@ -13,32 +13,32 @@
 /*----Data Structures----*/
 typedef struct instruction
 {
-	char mnem[4];//mnemonic
+	char mnem[4];//mnemonic for an instruction
 } Instruction;
 
 typedef struct binary
 {
-	char binary[6];//binary equivalent
+	char binary[6];//binary equivalent for an instruction
 } Binary;
 
 typedef struct symbolEntry
 {
-	char symbol[MAXLENGTH];
-	int address;
+	char symbol[MAXLENGTH];//symbol's name
+	int address;//symbol's address
 } SymbolEntry;
 
 typedef struct bufferEntry
 {
-	int address;
-	char binary[7];
+	int address;//The index for an address
+	char binary[7];//the binary stored at the address
 } BufferEntry;
 
 /*----Global Variables----*/
 Instruction InstructionSet[8];//the instruction set is an array of instruction data structures
 Binary InstructionBinary[8];//an array of the binary equivalents of the instruction mnemonics
 SymbolEntry SymbolTable[MAXENTRIES];//the symbol table is represented as an array of Symbol table entries
-BufferEntry OutputCodeBuffer[MAXBUFFER];
-int addressCounter;
+BufferEntry OutputCodeBuffer[MAXBUFFER];//the output code buffer
+int addressCounter;//this will increment if a symbol is discovered
 
 /*----Function declarations----*/
 void initialiseInstructions();
