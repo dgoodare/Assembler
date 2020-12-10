@@ -23,25 +23,34 @@ void initialiseInstructions()
 	strcpy(InstructionSet[5].mnem, "SUB");
 	strcpy(InstructionSet[6].mnem, "CMP");
 	strcpy(InstructionSet[7].mnem, "STP");
+
+	InstructionSet[0].binaryInt = 0;
+	InstructionSet[1].binaryInt = 4;
+	InstructionSet[2].binaryInt = 2;
+	InstructionSet[3].binaryInt = 6;
+	InstructionSet[4].binaryInt = 1;
+	InstructionSet[5].binaryInt = 5;
+	InstructionSet[6].binaryInt = 3;
+	InstructionSet[7].binaryInt = 7;
 }
 
 /**
 * Initialise Binary Codes for Instructions
 * As mentioned above, this is how I've initialised the binary code equivalents for the instructions. It's 
 * obviously not ideal, but it works for now.
-*/
+
 void initialiseBinary()
 {
-	strcpy(InstructionBinary[0].binary, "00000");
-	strcpy(InstructionBinary[1].binary, "00100");
-	strcpy(InstructionBinary[2].binary, "00010");
-	strcpy(InstructionBinary[3].binary, "00110");
-	strcpy(InstructionBinary[4].binary, "00001");
-	strcpy(InstructionBinary[5].binary, "00101");
-	strcpy(InstructionBinary[6].binary, "00011");
-	strcpy(InstructionBinary[7].binary, "00111");
+	strcpy(InstructionBinary[0].binary, "000");
+	strcpy(InstructionBinary[1].binary, "100");
+	strcpy(InstructionBinary[2].binary, "010");
+	strcpy(InstructionBinary[3].binary, "110");
+	strcpy(InstructionBinary[4].binary, "001");
+	strcpy(InstructionBinary[5].binary, "101");
+	strcpy(InstructionBinary[6].binary, "011");
+	strcpy(InstructionBinary[7].binary, "111");
 }
-
+*/
 /**
 * This function will return the mnemonic for the intruction passed into it
 */
@@ -77,11 +86,13 @@ void initialiseOutputCodeBuffer()
 {
 	//the first entry must be initialised differently
 	OutputCodeBuffer[0].address = 0;
-	strcpy(OutputCodeBuffer[0].binary, "00000");
+	OutputCodeBuffer[0].complete = true;
+	strcpy(OutputCodeBuffer[0].binary, "00000000000000000000000000000000");
 
 	for (int i = 1; i < MAXBUFFER; i++)
 	{
 		OutputCodeBuffer[i].address = i;
+		OutputCodeBuffer[i].complete = false;
 		strcpy(OutputCodeBuffer[i].binary, "");
 	}
 
@@ -130,6 +141,9 @@ bool addSymbolEntry(SymbolEntry newSymbol)
 		printf("ERROR: the symbol table has reached its maximum capacity, unable to add symbol\n");
 		return false;
 	}
+
+	printf("Error adding symbol to table\n");
+	return false;
 }
 
 /**
@@ -268,7 +282,7 @@ int findString(const char* substring)
 	}
 
 	fclose(fp);
-	return -1;
+	return lineNumber;
 }
 
 /**
@@ -312,7 +326,7 @@ void resolveSymbols()
 				//add it to the symbol table
 				addSymbolEntry(newSymbol);
 				//increment address counter
-				addressCounter++;
+				//addressCounter++;
 			}
 			
 			//send the rest of the current line to be processed and added to the output code buffer (if necessary)
@@ -341,9 +355,12 @@ void processCommand(char command[])
 	tempStr1[1] = command[1];
 	tempStr1[2] = command[2];
 
+	//add the commannd to the entry in the buffer
+	strcpy(OutputCodeBuffer[addressCounter].command, command);
+
 	int length = strlen(command) - 3;
 
-	char tempStr2[length];//temp variable to store the rest of the command
+	char tempStr2[length];//temp variable to store the operand
 
 	for (int i = 0; i < length; i++)
 	{
@@ -365,7 +382,9 @@ void processCommand(char command[])
 	}
 
 	//put command binary into the output code buffer
-	addToBuffer(tempStr1);
+	//addToBuffer(tempStr1);
+
+	unsigned insCode;//binary for the instruction code
 	
 	//check if the rest of the command is a number
 	if (!isdigit(tempStr2[0]))
@@ -377,12 +396,24 @@ void processCommand(char command[])
 		newSymbol.address = -1;
 		//add it to the symbol table
 		addSymbolEntry(newSymbol);
+
+		//notify buffer that the entry is not compelete
+		addToBuffer(tempStr1, false);
 		addressCounter++;
 	}
-	/*
-	* There is a case where a command is called directly onto a number e.g. 'LDN5', but I haven't implemented this
-	* yet since it does not appear in the assembly code file we've been given.
-	*/
+	else if (isdigit(tempStr2[0]))
+	{
+		//immediate addressing, this doesn't appear in the sample code though
+		insCode = getInstruction(tempStr1);
+		printf("Instruction code at address %d is %d\n", addressCounter, insCode);
+		addressCounter++;
+		return;
+
+	}
+	else
+	{
+		return;
+	}
 }
 
 /**
@@ -399,6 +430,33 @@ bool isInstruction(const char* str)
 	}
 
 	return isInstruction;
+}
+
+
+/**
+* Returns the binary for an instruction given as a string
+*/
+int getInstruction(const char* str)
+{
+	/*THIS MAY NEED TO BE HARD CODED*/
+
+	for (int i = 0; i < 8; i++)
+	{
+		if (strcmp(str, getMnem(InstructionSet[i])) == 0)
+		{
+			printf("int code: %d\n", InstructionSet[i].binaryInt);
+			return InstructionSet[i].binaryInt;
+		}
+	}
+
+	return NULL;
+}
+
+unsigned int convertToBinary(unsigned i)
+{
+	if (i == 0) return 0;
+	if (i == 1) return 1;
+	return (i % 2) + 10 * convertToBinary(i/2);
 }
 
 /**
@@ -426,19 +484,25 @@ bool isSymbol(const char* str)
 * the binary codes as strings, but this has caused some issues, so it might be better storing
 * them as integers to be converted into binary later.
 */
-void addToBuffer(const char* str)
+void addToBuffer(const char* str, bool complete)
 {
+	if (!complete)
+	{
+		OutputCodeBuffer[addressCounter].complete = false;
+		//printf("Binary at address %d not complete, to be completed in pass 2\n", addressCounter);
+		return;
+	}
 	char tempbinary[5];
-	printf("Instruction %s received\n", str);
+	//printf("Instruction %s received\n", str);
 
 	for(int i = 0; i < 8; i++)
 	{
 		if (strcmp(str, getMnem(InstructionSet[i])) == 0)
 		{
 
-			printf("Match found\n");
-			strcpy(tempbinary, InstructionBinary[i].binary);
-			printf("binary code: %s\n", tempbinary);
+			//printf("Match found\n");
+			//strcpy(tempbinary, InstructionBinary[i].binary);
+			//printf("binary code: %s\n", tempbinary);
 			break;
 		}
 	}
@@ -455,6 +519,199 @@ void printBuffer()
 	printf("First 10 entries in Output buffer:\n");
 	for (int i = 0; i < 10; i++)
 	{
-		printf("Binary stored in address %d is %s\n", i, OutputCodeBuffer[i].binary);
+		//printf("Binary stored in address %d is %s\n", i, OutputCodeBuffer[i].binary);
+		//printf("Command stored in address %d is %s\n", i, OutputCodeBuffer[i].command);
 	}
+}
+
+/**
+* Writes the contents of the output buffer to a text file
+*/
+void writeBufferToFile()
+{
+	FILE *fp = fopen("output.txt", "w");
+	if (!fp)
+	{
+		printf("Error opening file\n");
+		return;
+	}
+
+	int counter = 0;
+
+	while (counter < 10 || strcmp(OutputCodeBuffer[counter].binary, ""))
+	{
+		if(strcmp(OutputCodeBuffer[counter].binary, "") != 0)
+		{
+			fputs(OutputCodeBuffer[counter].binary, fp);
+			fputc('\n', fp);
+		}
+		else
+		{
+			fputc('\n', fp);
+		}
+		
+		counter++;
+	}
+
+	fclose(fp);
+
+}
+
+/**
+ * This is a verison of the <stdlib.h> function itoa(), which for some reason, does not work with GCC on Linux
+ * Written by Lukás Chmela
+ * Released under GPLv3.
+ */
+char* itoa(int value, char* result, int base) 
+{
+	// check that the base if valid
+	if (base < 2 || base > 36) { *result = '\0'; return result; }
+	char* ptr = result, *ptr1 = result, tmp_char;
+	int tmp_value;
+	do {
+		tmp_value = value;
+		value /= base;
+		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
+	} while ( value );
+	// Apply negative sign
+	if (tmp_value < 0) *ptr++ = '-';
+	*ptr-- = '\0';
+	while(ptr1 < ptr) {
+		tmp_char = *ptr;
+		*ptr--= *ptr1;
+		*ptr1++ = tmp_char;
+	}
+	return result;
+}
+
+/**
+* Used in Pass 2 to generate the binary for commands that need binary
+*/
+void generateBinary(int index)
+{
+	//store the command (which will always be the first 3 characters)
+	char cmd[MAXCHAR];
+	strcpy(cmd, OutputCodeBuffer[index].command);
+	char instruction[3];
+	instruction[0] = cmd[0];
+	instruction[1] = cmd[1];
+	instruction[2] = cmd[2];
+
+	//the rest of the command will be the operand
+	int length = strlen(OutputCodeBuffer[index].command) - 3;
+	char operand[length];
+
+	for (int i = 0; i < length; i++)
+	{
+		if ((OutputCodeBuffer[index].command[i+3] != '\n') && (OutputCodeBuffer[index].command[i+3] != '\0'))
+			operand[i] = OutputCodeBuffer[index].command[i+3];
+	}
+
+	char searchCommand[length+1];
+	strcpy(searchCommand, operand);
+	//char c = ':';
+	//strncat(searchCommand, &c, 1);
+	unsigned int lineNumber = 0;
+	lineNumber = findString(OutputCodeBuffer[index].command);
+	//printf("%d\n", lineNumber);
+
+	char binaryCode[32];
+
+	//FIRST STAGE
+	//5-bit binary containing line number
+	if (lineNumber > 31)
+	{
+		printf("Invalid line number, terminating\n");
+		exit(0);
+	}
+	else if (lineNumber <= 31 && lineNumber > 15)
+	{
+		//5-bit number
+		char c[5];
+		itoa(lineNumber, c, 2);
+		binaryCode[0] = c[0];
+		binaryCode[1] = c[1];
+		binaryCode[2] = c[2];
+		binaryCode[3] = c[3];
+		binaryCode[4] = c[4];
+	}
+	else if (lineNumber <= 15 && lineNumber > 7)
+	{
+		//4-bit number
+		char c[4];
+		itoa(lineNumber, c, 2);
+		binaryCode[0] = '0';
+		binaryCode[1] = c[0];
+		binaryCode[2] = c[1];
+		binaryCode[3] = c[2];
+		binaryCode[4] = c[3];
+
+	}
+	else if (lineNumber <= 7 && lineNumber > 3)
+	{
+		//3-bit number
+		char c[3];
+		itoa(lineNumber, c, 2);
+		binaryCode[0] = '0';
+		binaryCode[1] = '0';
+		binaryCode[2] = c[0];
+		binaryCode[3] = c[1];
+		binaryCode[4] = c[2];
+	}
+	else if (lineNumber <= 3 && lineNumber > 1)
+	{
+		//2-bit number
+		char c[2];
+		itoa(lineNumber, c, 2);
+		binaryCode[0] = '0';
+		binaryCode[1] = '0';
+		binaryCode[2] = '0';
+		binaryCode[3] = c[0];
+		binaryCode[4] = c[1];
+	}
+	else
+	{
+		//1-bit number
+		char c[1];
+		itoa(lineNumber, c, 2);
+		binaryCode[0] = '0';
+		binaryCode[1] = '0';
+		binaryCode[2] = '0';
+		binaryCode[3] = '0';
+		binaryCode[4] = c[0];
+	}
+
+	//printf("first stage %s\n", binaryCode);
+	//SECOND STAGE
+	//8-bit group of 0s
+	for (int i = 5; i < 13; i++)
+	{
+		binaryCode[i] = '0';
+	}
+	//printf("second stage %s\n", binaryCode);
+	//THIRD STAGE
+	//3-bit instruction opcode
+
+	char i[3];
+	itoa(getInstruction(instruction), i, 2);
+	binaryCode[13] = i[0];
+	binaryCode[14] = i[1];
+	binaryCode[15] = i[2];
+	//printf("third stage %s\n", binaryCode);
+
+	//FOURTH STAGE
+	//14-bit group of 0s
+	for (int i = 16; i < 31; i++)
+	{
+		binaryCode[i] = '0';
+	}
+	//printf("fourth stage %s\n", binaryCode);
+
+	//FIFTH STAGE
+	//Last bit determines addressing mode
+	binaryCode[31] = '?';
+
+	strcpy(OutputCodeBuffer[index].binary, binaryCode);
+
+	printf("OUTPUT BINARY %s\n", binaryCode);
 }

@@ -9,7 +9,7 @@ int main()
 	/*----INITIALISATION----*/
 	initialiseInstructions();
 
-	initialiseBinary();
+	//initialiseBinary();
 
 	initialiseSymbolTable();
 	
@@ -26,6 +26,16 @@ int main()
 		printSymbol(SymbolTable[i]);
 	}
 	//prints the buffer
-	printBuffer();
+	//printBuffer();
+
+	//generate the binary for the buffer entries
+	for (int i = 0; i < 10; i++)
+	{
+		generateBinary(i);
+	}
+
+	//printBuffer();
+
+	writeBufferToFile();
 	return 1;
 }

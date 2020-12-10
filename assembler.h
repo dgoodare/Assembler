@@ -14,13 +14,15 @@
 typedef struct instruction
 {
 	char mnem[4];//mnemonic for an instruction
+	int binaryInt;//binary for the instruction represented as an integer
 } Instruction;
 
+/*
 typedef struct binary
 {
 	char binary[6];//binary equivalent for an instruction
 } Binary;
-
+*/
 typedef struct symbolEntry
 {
 	char symbol[MAXLENGTH];//symbol's name
@@ -30,12 +32,14 @@ typedef struct symbolEntry
 typedef struct bufferEntry
 {
 	int address;//The index for an address
-	char binary[7];//the binary stored at the address
+	char binary[MAXCHAR];//the binary stored at the address
+	bool complete;//used in Pass 2 to determine which entries need to be filled in
+	char command[MAXCHAR];//stores the command to be processed in Pass 2
 } BufferEntry;
 
 /*----Global Variables----*/
 Instruction InstructionSet[8];//the instruction set is an array of instruction data structures
-Binary InstructionBinary[8];//an array of the binary equivalents of the instruction mnemonics
+//Binary InstructionBinary[8];//an array of the binary equivalents of the instruction mnemonics
 SymbolEntry SymbolTable[MAXENTRIES];//the symbol table is represented as an array of Symbol table entries
 BufferEntry OutputCodeBuffer[MAXBUFFER];//the output code buffer
 int addressCounter;//this will increment if a symbol is discovered
@@ -54,6 +58,12 @@ int findString(const char* substring);
 void resolveSymbols();
 void processCommand(char command[]);
 bool isInstruction(const char* str);
+int getInstruction(const char* str);
 bool isSymbol(const char* str);
-void addToBuffer(const char* str);
+void addToBuffer(const char* str, bool complete);
 void printBuffer();
+void writeBufferToFile();
+unsigned int convertToBinary(unsigned i);
+//char convertToBinaryString(int integer, int bits);
+char* itoa(int value, char* result, int base);
+void generateBinary(int index);
