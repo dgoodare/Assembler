@@ -25,16 +25,13 @@ int main()
 	{
 		printSymbol(SymbolTable[i]);
 	}
-	//prints the buffer
-	//printBuffer();
-
+	
+	/*----PASS 2----*/
 	//generate the binary for the buffer entries
-	for (int i = 0; i < 10; i++)
+	for (int i = 1; i < 15; i++)
 	{
 		generateBinary(i);
 	}
-
-	//printBuffer();
 
 	writeBufferToFile();
 	return 1;

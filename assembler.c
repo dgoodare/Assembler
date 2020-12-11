@@ -35,23 +35,6 @@ void initialiseInstructions()
 }
 
 /**
-* Initialise Binary Codes for Instructions
-* As mentioned above, this is how I've initialised the binary code equivalents for the instructions. It's 
-* obviously not ideal, but it works for now.
-
-void initialiseBinary()
-{
-	strcpy(InstructionBinary[0].binary, "000");
-	strcpy(InstructionBinary[1].binary, "100");
-	strcpy(InstructionBinary[2].binary, "010");
-	strcpy(InstructionBinary[3].binary, "110");
-	strcpy(InstructionBinary[4].binary, "001");
-	strcpy(InstructionBinary[5].binary, "101");
-	strcpy(InstructionBinary[6].binary, "011");
-	strcpy(InstructionBinary[7].binary, "111");
-}
-*/
-/**
 * This function will return the mnemonic for the intruction passed into it
 */
 char* getMnem(Instruction ins)
@@ -326,7 +309,7 @@ void resolveSymbols()
 				//add it to the symbol table
 				addSymbolEntry(newSymbol);
 				//increment address counter
-				//addressCounter++;
+				addressCounter++;
 			}
 			
 			//send the rest of the current line to be processed and added to the output code buffer (if necessary)
@@ -349,7 +332,7 @@ void resolveSymbols()
 */
 void processCommand(char command[])
 {
-	printf("Command being processed: %s", command);
+	//printf("Command being processed: %s", command);
 	char tempStr1[3];//temp variable to store the first 3 characters in the command
 	tempStr1[0] = command[0];
 	tempStr1[1] = command[1];
@@ -361,16 +344,14 @@ void processCommand(char command[])
 	int length = strlen(command) - 3;
 
 	char tempStr2[length];//temp variable to store the operand
+	strcpy(tempStr2, chopN(tempStr2, 3));
 
-	for (int i = 0; i < length; i++)
-	{
-		if ((command[i+3] != '\n') && (command[i+3] != '\0'))
-			tempStr2[i] = command[i+3];
-	}
-	
-	//check if the command is a variable declaration, if it is, ignore it for now
+	//check if the command is a variable declaration, if it is, add the command to the output buffer
 	if (strcmp(tempStr1, "VAR") == 0)
 	{
+		addToBuffer(command, false);
+		strcpy(OutputCodeBuffer[addressCounter].binary, generateVariableBinary(command));
+
 		return;
 	}
 
@@ -382,9 +363,8 @@ void processCommand(char command[])
 	}
 
 	//put command binary into the output code buffer
-	//addToBuffer(tempStr1);
 
-	unsigned insCode;//binary for the instruction code
+	int insCode;//binary for the instruction code
 	
 	//check if the rest of the command is a number
 	if (!isdigit(tempStr2[0]))
@@ -434,22 +414,47 @@ bool isInstruction(const char* str)
 
 
 /**
-* Returns the binary for an instruction given as a string
+* Returns the integer equivalent of an instruction that is provided as a string
 */
 int getInstruction(const char* str)
 {
-	/*THIS MAY NEED TO BE HARD CODED*/
-
-	for (int i = 0; i < 8; i++)
+	//This section would ideally be a switch statement, but they don't work with strings
+	if (strncmp(str, "JMP", 3) == 0)
 	{
-		if (strcmp(str, getMnem(InstructionSet[i])) == 0)
-		{
-			printf("int code: %d\n", InstructionSet[i].binaryInt);
-			return InstructionSet[i].binaryInt;
-		}
+		return InstructionSet[0].binaryInt;
 	}
-
-	return NULL;
+	else if (strncmp(str, "JRP", 3) == 0)
+	{
+		return InstructionSet[1].binaryInt;
+	}
+	else if (strncmp(str, "LDN", 3) == 0)
+	{
+		return InstructionSet[2].binaryInt;
+	}
+	else if (strncmp(str, "STO", 3) == 0)
+	{
+		return InstructionSet[3].binaryInt;
+	}
+	else if (strncmp(str, "SUB", 3) == 0)
+	{
+		return InstructionSet[4].binaryInt;
+	}
+	else if (strncmp(str, "SUB", 3) == 0)
+	{
+		return InstructionSet[5].binaryInt;
+	}
+	else if (strncmp(str, "CMP", 3) == 0)
+	{
+		return InstructionSet[6].binaryInt;
+	}
+	else if (strncmp(str, "STP", 3) == 0)
+	{
+		return InstructionSet[7].binaryInt;
+	}
+	else
+	{
+		return -1;
+	}
 }
 
 unsigned int convertToBinary(unsigned i)
@@ -489,7 +494,7 @@ void addToBuffer(const char* str, bool complete)
 	if (!complete)
 	{
 		OutputCodeBuffer[addressCounter].complete = false;
-		//printf("Binary at address %d not complete, to be completed in pass 2\n", addressCounter);
+		strcpy(OutputCodeBuffer[addressCounter].command, str);
 		return;
 	}
 	char tempbinary[5];
@@ -519,8 +524,8 @@ void printBuffer()
 	printf("First 10 entries in Output buffer:\n");
 	for (int i = 0; i < 10; i++)
 	{
-		//printf("Binary stored in address %d is %s\n", i, OutputCodeBuffer[i].binary);
-		//printf("Command stored in address %d is %s\n", i, OutputCodeBuffer[i].command);
+		printf("Binary stored in address %d is %s\n", i, OutputCodeBuffer[i].binary);
+		printf("Command stored in address %d is %s\n", i, OutputCodeBuffer[i].command);
 	}
 }
 
@@ -585,7 +590,21 @@ char* itoa(int value, char* result, int base)
 }
 
 /**
+* Chops the first n characters off of the string str
+*/
+char* chopN(char *str, int n)
+{
+	int length = strlen(str);
+	if (n > length)
+		return "";
+	memmove(str, str+n, (length-n+1));
+	return str;
+}
+
+/**
 * Used in Pass 2 to generate the binary for commands that need binary
+* this function is only used for commands like 'LDNNUM01', variable declarations
+* are handled separately
 */
 void generateBinary(int index)
 {
@@ -593,19 +612,13 @@ void generateBinary(int index)
 	char cmd[MAXCHAR];
 	strcpy(cmd, OutputCodeBuffer[index].command);
 	char instruction[3];
-	instruction[0] = cmd[0];
-	instruction[1] = cmd[1];
-	instruction[2] = cmd[2];
+	strncpy(instruction, cmd, 3);
+	instruction[3] = 0;
 
 	//the rest of the command will be the operand
 	int length = strlen(OutputCodeBuffer[index].command) - 3;
 	char operand[length];
-
-	for (int i = 0; i < length; i++)
-	{
-		if ((OutputCodeBuffer[index].command[i+3] != '\n') && (OutputCodeBuffer[index].command[i+3] != '\0'))
-			operand[i] = OutputCodeBuffer[index].command[i+3];
-	}
+	strcpy(operand, chopN(cmd, 3));
 
 	char searchCommand[length+1];
 	strcpy(searchCommand, operand);
@@ -697,7 +710,6 @@ void generateBinary(int index)
 	binaryCode[13] = i[0];
 	binaryCode[14] = i[1];
 	binaryCode[15] = i[2];
-	//printf("third stage %s\n", binaryCode);
 
 	//FOURTH STAGE
 	//14-bit group of 0s
@@ -709,9 +721,36 @@ void generateBinary(int index)
 
 	//FIFTH STAGE
 	//Last bit determines addressing mode
-	binaryCode[31] = '?';
+	binaryCode[31] = '0';
 
 	strcpy(OutputCodeBuffer[index].binary, binaryCode);
+}
 
-	printf("OUTPUT BINARY %s\n", binaryCode);
+/**
+* generates the binary for a line with a variable declaration
+*/
+char* generateVariableBinary(char * cmd)
+{
+	//remove the variable name from the line
+	char *str = strtok(cmd, ":");
+	
+	//remove 'VAR' leaving just the value
+	strcpy(str, chopN(str, 3));
+
+	//value being stored
+	int val = atoi(str);
+
+	char bin[32]; 
+	itoa(val, bin, 2);
+	int len = strlen(bin);
+
+	char zeroFiller[32-len];
+	for (int i = 0; i < 32-len; i++)
+	{
+		zeroFiller[i] = '0';
+	}
+
+	strncat(zeroFiller, bin, len);
+	strcpy(cmd, zeroFiller);
+	return cmd;
 }

@@ -64,6 +64,7 @@ void addToBuffer(const char* str, bool complete);
 void printBuffer();
 void writeBufferToFile();
 unsigned int convertToBinary(unsigned i);
-//char convertToBinaryString(int integer, int bits);
 char* itoa(int value, char* result, int base);
+char* chopN(char *str, int n);
 void generateBinary(int index);
+char* generateVariableBinary(char * cmd);
